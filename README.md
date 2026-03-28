@@ -1,5 +1,5 @@
 # Marine AR Sandbox Toolkit
-
+DEMO LINK: https://entrytask.vercel.app/
 ## Overview
 
 A browser-based authoring tool for building marine AR experiences. Place, arrange, and resize marine assets on an interactive canvas, then export the scene as WebXR-ready JSON. No build step required.
