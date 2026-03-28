@@ -37,7 +37,9 @@ const hudCount = document.getElementById('hud-count');
 const hudPerfWarn = document.getElementById('hud-perf-warn');
 const sizeSliderEl = document.getElementById('size-slider');
 const sizeSliderValue = document.getElementById('size-slider-value');
-const sizeSliderContainer = document.getElementById('size-slider-container');
+const rotationSliderEl = document.getElementById('rotation-slider');
+const rotationSliderValue = document.getElementById('rotation-slider-value');
+const assetControls = document.getElementById('asset-controls');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LAYER 0 — Animated Water Sprite-Sheet Background
@@ -60,10 +62,6 @@ let waterCanvas, waterCtx, waterSprite;
 function initWaterBackground() {
   waterCanvas = document.createElement('canvas');
   waterCtx = waterCanvas.getContext('2d');
-  // CSS fills the container; pixel buffer sized in drawStaticWaterFrame()
-  waterCanvas.style.width = '100%';
-  waterCanvas.style.height = '100%';
-  waterCanvas.style.display = 'block';
   waterLayer.appendChild(waterCanvas);
 
   waterSprite = new Image();
@@ -96,16 +94,48 @@ function drawStaticWaterFrame() {
   waterCanvas.width = w;
   waterCanvas.height = h;
 
-  const frameW = waterSprite.naturalWidth / SPRITE_COLS;
-  const frameH = waterSprite.naturalHeight / SPRITE_ROWS;
+  const rawFrameW = waterSprite.naturalWidth / SPRITE_COLS;
+  const rawFrameH = waterSprite.naturalHeight / SPRITE_ROWS;
   const col = STATIC_FRAME_INDEX % SPRITE_COLS;
   const row = Math.floor(STATIC_FRAME_INDEX / SPRITE_COLS);
 
+  // Crop 4% off the edges to eliminate any baked-in black grid lines or borders
+  const cropX = rawFrameW * 0.04;
+  const cropY = rawFrameH * 0.04;
+  const srcW = rawFrameW - (cropX * 2);
+  const srcH = rawFrameH - (cropY * 2);
+  const srcX = (col * rawFrameW) + cropX;
+  const srcY = (row * rawFrameH) + cropY;
+
+  // Calculate "contain" bounds to keep water image proportional
+  const aspectCanvas = w / h;
+  const aspectFrame = srcW / srcH;
+  
+  let drawW, drawH, drawX, drawY;
+  
+  // "contain" logic
+  if (aspectFrame > aspectCanvas) {
+    drawW = w;
+    drawH = w / aspectFrame;
+    drawX = 0;
+    drawY = (h - drawH) / 2;
+  } else {
+    drawH = h;
+    drawW = h * aspectFrame;
+    drawY = 0;
+    drawX = (w - drawW) / 2;
+  }
+
+  waterCtx.clearRect(0, 0, w, h);
+  
   waterCtx.drawImage(
     waterSprite,
-    col * frameW, row * frameH, frameW, frameH,  // source rect
-    0, 0, w, h                                     // dest rect (full canvas)
+    srcX, srcY, srcW, srcH,       // source rect (cropped)
+    drawX, drawY, drawW, drawH    // dest rect (contained + centered)
   );
+
+  // Export these bounds so DragController can restrict assets 
+  window._waterDrawBounds = { x: drawX, y: drawY, w: drawW, h: drawH, canvasW: w, canvasH: h };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -186,13 +216,13 @@ drag.onDeleteMesh = (mesh) => {
       child.material.dispose();
     }
   });
-  hideSizeSlider();
+  hideAssetControls();
   updateHUD();
   updateJsonPreviewIfOpen();
 };
 
 drag.onDeselect = () => {
-  hideSizeSlider();
+  hideAssetControls();
 };
 
 /**
@@ -218,9 +248,9 @@ drag.onScaleChange = (id, newScale) => {
   updateJsonPreviewIfOpen();
 };
 
-// ─── Size Slider ──────────────────────────────────────────────────────────────
+// ─── Asset Controls (Size + Rotation Sliders) ───────────────────────────────────────
 
-let _sliderVisible = false;
+let _controlsVisible = false;
 
 /**
  * Convert a Three.js world position to screen pixel coordinates.
@@ -235,73 +265,82 @@ function worldToScreen(worldPos) {
   };
 }
 
-/** Position the slider near a given screen point, clamped to canvas bounds. */
-function positionSliderNear(screenX, screenY) {
+/** Position the controls panel near a given screen point, clamped to canvas. */
+function positionControlsNear(screenX, screenY) {
   const rect = canvasContainer.getBoundingClientRect();
-  const sliderW = sizeSliderContainer.offsetWidth || 200;
-  const sliderH = sizeSliderContainer.offsetHeight || 40;
+  const panelW = assetControls.offsetWidth || 220;
+  const panelH = assetControls.offsetHeight || 70;
   const PAD = 12;
 
-  // Place below the object, offset slightly
-  let x = screenX - sliderW / 2;
-  let y = screenY + 40; // 40px below asset center
+  let x = screenX - panelW / 2;
+  let y = screenY + 45;
 
-  // Clamp within canvas bounds
-  x = Math.max(PAD, Math.min(rect.width - sliderW - PAD, x));
-  y = Math.max(PAD, Math.min(rect.height - sliderH - PAD, y));
+  x = Math.max(PAD, Math.min(rect.width - panelW - PAD, x));
+  y = Math.max(PAD, Math.min(rect.height - panelH - PAD, y));
 
-  sizeSliderContainer.style.left = `${x}px`;
-  sizeSliderContainer.style.top = `${y}px`;
-  sizeSliderContainer.style.right = 'auto';
-  sizeSliderContainer.style.bottom = 'auto';
+  assetControls.style.left = `${x}px`;
+  assetControls.style.top = `${y}px`;
+  assetControls.style.right = 'auto';
+  assetControls.style.bottom = 'auto';
 }
 
-/** Show slider and sync to the given asset's current scale. */
-function showSizeSlider(asset) {
+/** Show controls and sync both sliders to the asset's current values. */
+function showAssetControls(asset) {
   if (!asset) return;
   const scale = asset.scale ?? 1.0;
+  const rotation = asset.rotation ?? 0;
   sizeSliderEl.value = scale;
-  sizeSliderValue.textContent = `${scale.toFixed(1)}×`;
-  _sliderVisible = true;
-  sizeSliderContainer.classList.add('slider--visible');
+  sizeSliderValue.textContent = `${scale.toFixed(1)}x`;
+  rotationSliderEl.value = rotation;
+  rotationSliderValue.textContent = `${Math.round(rotation)}deg`;
+  _controlsVisible = true;
+  assetControls.classList.add('controls--visible');
 }
 
-/** Hide the slider panel. */
-function hideSizeSlider() {
-  _sliderVisible = false;
-  sizeSliderContainer.classList.remove('slider--visible');
+/** Hide the controls panel. */
+function hideAssetControls() {
+  _controlsVisible = false;
+  assetControls.classList.remove('controls--visible');
 }
 
-/**
- * Called every frame to keep the slider anchored near the selected object.
- * Only runs when the slider is visible.
- */
-function updateSliderPosition() {
-  if (!_sliderVisible) return;
+/** Called every frame to keep controls anchored near the selected object. */
+function updateControlsPosition() {
+  if (!_controlsVisible) return;
   const sel = drag.getSelectedAsset();
   if (!sel) return;
   const mesh = SceneManager.getMeshById(sel.id);
   if (!mesh) return;
   const screen = worldToScreen(mesh.position);
-  positionSliderNear(screen.x, screen.y);
+  positionControlsNear(screen.x, screen.y);
 }
 
-/** Wire the slider input event. */
+// Wire size slider
 sizeSliderEl.addEventListener('input', () => {
   const val = parseFloat(sizeSliderEl.value);
-  sizeSliderValue.textContent = `${val.toFixed(1)}×`;
+  sizeSliderValue.textContent = `${val.toFixed(1)}x`;
   drag.setScale(val);
 });
 
-// Show slider when an asset is selected
+// Wire rotation slider
+rotationSliderEl.addEventListener('input', () => {
+  const val = parseInt(rotationSliderEl.value, 10);
+  rotationSliderValue.textContent = `${val}deg`;
+  drag.setRotation(val);
+});
+
+// Show controls when an asset is selected
 drag.onSelect = (asset) => {
-  showSizeSlider(asset);
+  showAssetControls(asset);
 };
 
-// ─── Placement mode also hides slider ─────────────────────────────────────────
+drag.onRotationChange = (id, degrees) => {
+  updateJsonPreviewIfOpen();
+};
+
+// Placement mode hides controls
 const _origEnterPlacement = drag.enterPlacementMode.bind(drag);
 drag.enterPlacementMode = (ghostGroup) => {
-  hideSizeSlider();
+  hideAssetControls();
   _origEnterPlacement(ghostGroup);
 };
 
@@ -467,7 +506,7 @@ function animate(timestamp) {
 
   // Layer 1: Smooth drag interpolation + Three.js render
   drag.update(delta);
-  updateSliderPosition();
+  updateControlsPosition();
   renderer.render(scene, camera);
 
   // HUD render time (throttled to every ~500ms for performance)

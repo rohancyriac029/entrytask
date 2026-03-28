@@ -89,7 +89,7 @@ marine-sandbox/
 2. Move the mouse over the canvas -- the asset ghost follows the cursor
 3. Click to place the asset
 4. Click a placed asset to select it -- a size slider appears near the object
-5. Drag the slider to resize (0.3x to 4.0x)
+5. Drag the slider to resize (0.3x to 4.0x) you can also rotate the asset.
 6. Drag selected assets to reposition them
 7. Press Delete to remove the selected asset
 8. Use Export JSON to download the scene, or Preview JSON to inspect it

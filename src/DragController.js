@@ -59,19 +59,34 @@ export class DragController {
     this.onPlacementCommit = null;
     /** Called to update HUD with current scale. */
     this.onScaleChange = null;
+    /** Called when rotation changes via slider. */
+    this.onRotationChange = null;
 
     this._bindEvents();
   }
 
   /**
    * Computes scene bounds dynamically from camera frustum.
-   * This ensures placement/drag fills the entire visible area.
+   * Restricts placement/drag to the drawn water background image.
    */
   _getSceneBounds() {
     const cam = this._camera;
     const hw = (cam.right - cam.left) / 2;
     const hh = (cam.top - cam.bottom) / 2;
-    return { halfW: hw * 0.95, halfH: hh * 0.95 }; // 5% margin from edge
+    
+    // Restrict dragging to ONLY the drawn water background image
+    if (window._waterDrawBounds) {
+      const { w, h, canvasW, canvasH } = window._waterDrawBounds;
+      const fracW = w / canvasW;
+      const fracH = h / canvasH;
+      // 90% of the visible water area to ensure assets don't hang off the edge
+      return { 
+        halfW: (hw * fracW) * 0.90, 
+        halfH: (hh * fracH) * 0.90 
+      };
+    }
+
+    return { halfW: hw * 0.95, halfH: hh * 0.95 }; // fallback
   }
 
   _bindEvents() {
@@ -297,8 +312,27 @@ export class DragController {
   }
 
   /**
+   * Sets the rotation (in degrees) of the currently selected asset around Y axis.
+   * Called by the external UI slider in main.js.
+   * @param {number} degrees — 0 to 360.
+   */
+  setRotation(degrees) {
+    if (!this._selected || !this._selectedId) return;
+
+    const rad = (degrees % 360) * (Math.PI / 180);
+
+    const asset = SceneManager.getAll().find((a) => a.id === this._selectedId);
+    if (!asset) return;
+
+    asset.rotation = degrees % 360;
+    this._selected.rotation.y = rad;
+
+    this.onRotationChange?.(this._selectedId, degrees % 360);
+  }
+
+  /**
    * Returns the currently selected asset record, or null.
-   * @returns {{ id: string, scale: number }|null}
+   * @returns {{ id: string, scale: number, rotation: number }|null}
    */
   getSelectedAsset() {
     if (!this._selectedId) return null;
