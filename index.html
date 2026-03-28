@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Marine AR Sandbox Toolkit — Browser-native authoring tool for building mobile AR ocean experiences. Place, arrange, and export marine assets as WebXR-ready JSON." />
+  <title>🌊 Marine AR Sandbox</title>
+
+  <!-- Google Fonts: Space Mono (labels) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+  <!-- ── App Shell ──────────────────────────────────────────────────────── -->
+  <div id="app" role="application" aria-label="Marine AR Sandbox">
+
+    <!-- ── Header / Toolbar ───────────────────────────────────────────── -->
+    <header id="toolbar" role="banner">
+      <div class="toolbar__brand">
+        <span class="toolbar__logo" aria-hidden="true">🌊</span>
+        <span class="toolbar__title">Marine Sandbox</span>
+        <span class="toolbar__version">v1.0.0</span>
+      </div>
+
+      <nav class="toolbar__actions" role="toolbar" aria-label="Scene actions">
+        <!-- Export warning (inline, shown on empty export) -->
+        <span id="export-warning" class="export-warning" role="alert" aria-live="polite"></span>
+
+        <button id="btn-import" class="btn btn--ghost" title="Import scene from JSON file">
+          Import JSON
+        </button>
+        <button id="btn-preview" class="btn btn--ghost" title="Preview scene JSON">
+          Preview JSON
+        </button>
+        <button id="btn-export" class="btn btn--primary" title="Download scene as JSON file">
+          Export JSON
+        </button>
+      </nav>
+    </header>
+
+    <!-- ── Main Content ───────────────────────────────────────────────── -->
+    <main id="main-content" role="main">
+
+      <!-- ── Sidebar: Asset Panel ──────────────────────────────────── -->
+      <aside id="sidebar" role="complementary" aria-label="Marine asset library">
+        <header class="sidebar__header">
+          <h2 class="sidebar__title">Assets</h2>
+          <p class="sidebar__subtitle">Click to place in scene</p>
+        </header>
+
+        <!-- Asset cards populated by main.js from ASSET_REGISTRY -->
+        <ul id="asset-list" class="asset-list" role="list" aria-label="Available marine assets">
+        </ul>
+
+        <!-- Sidebar footer: HUD info -->
+        <footer class="sidebar__footer">
+          <div class="hud">
+            <div class="hud__row">
+              <span class="hud__label">Scene</span>
+              <span id="hud-count" class="hud__value">0 assets</span>
+            </div>
+            <div class="hud__row">
+              <span class="hud__label">Render</span>
+              <span id="hud-ms" class="hud__value">—</span>
+            </div>
+          </div>
+          <div id="hud-perf-warn" class="perf-warn" role="alert" aria-live="polite">
+            ⚠ 20+ assets — may impact AR performance
+          </div>
+        </footer>
+      </aside>
+
+      <!-- ── Canvas: Layered architecture ──────────────────────────── -->
+      <section id="canvas-container" aria-label="3D scene canvas">
+
+        <!-- Layer 0: Animated water sprite-sheet background -->
+        <div id="water-layer" aria-hidden="true"></div>
+
+        <!-- Layer 1: Three.js canvas renders here (transparent bg) -->
+        <div id="objects-layer"></div>
+
+        <!-- Contextual hint overlay -->
+        <!-- Size slider (visible when asset selected) -->
+        <div id="size-slider-container" class="size-slider" aria-label="Resize selected asset">
+          <label class="size-slider__label" for="size-slider">Size</label>
+          <input type="range" id="size-slider" min="0.3" max="4.0" step="0.1" value="1.0" />
+          <span id="size-slider-value" class="size-slider__value">1.0×</span>
+        </div>
+
+        <!-- Contextual hint overlay -->
+        <div class="canvas-hint" id="canvas-hint" aria-hidden="true">
+          <span>Click an asset in the panel → click canvas to place → drag to move</span>
+          <span class="canvas-hint__key">DEL</span><span> to remove selected</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- ── JSON Preview Panel (slide-in from bottom) ──────────────── -->
+    <section
+      id="json-panel"
+      class="json-panel"
+      role="region"
+      aria-label="JSON scene preview"
+      aria-hidden="true"
+    >
+      <header class="json-panel__header">
+        <span class="json-panel__title">
+          <span aria-hidden="true">{ }</span> Scene JSON
+        </span>
+        <button id="json-close" class="json-panel__close" aria-label="Close JSON preview">✕</button>
+      </header>
+      <pre id="json-pre" class="json-pre" aria-label="Scene JSON output" tabindex="0"></pre>
+    </section>
+
+  </div><!-- /#app -->
+
+  <!-- Three.js r160 ES Module (no build step required) -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
