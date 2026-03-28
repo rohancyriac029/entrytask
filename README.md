@@ -18,8 +18,6 @@ A browser-based authoring tool for building marine AR experiences. Place, arrang
 - Asset count HUD with render timing and performance warnings (20+ assets)
 - Syntax-highlighted JSON preview panel
 
-
-## Improvements:
 -Using ai to generate objects and textures
 -Adding more assets
 -Adding more features
